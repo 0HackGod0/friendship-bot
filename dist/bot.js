@@ -22,19 +22,27 @@ const commandDefs = [
         .setRequired(true))
         .setDefaultMemberPermissions(discord_js_1.PermissionFlagsBits.Administrator),
     new discord_js_1.SlashCommandBuilder()
-        .setName('역할설정')
-        .setDescription('인증 성공 시 지급할 역할을 지정합니다.')
+        .setName('역할')
+        .setDescription('인증 완료 시 지급할 역할을 관리합니다.')
+        .addSubcommand(sub => sub.setName('설정')
+        .setDescription('인증 완료 시 지급할 역할을 지정합니다.')
         .addRoleOption(opt => opt.setName('role')
         .setDescription('지급할 역할을 선택합니다.')
-        .setRequired(true))
+        .setRequired(true)))
+        .addSubcommand(sub => sub.setName('해제')
+        .setDescription('설정된 지급 역할을 제거(없음으로 변경)합니다.'))
         .setDefaultMemberPermissions(discord_js_1.PermissionFlagsBits.Administrator),
     new discord_js_1.SlashCommandBuilder()
-        .setName('인증메시지')
-        .setDescription('인증 버튼 메시지를 현재 채널에 전송합니다.')
+        .setName('인증')
+        .setDescription('인증 관련 명령어입니다.')
+        .addSubcommand(sub => sub.setName('메시지')
+        .setDescription('인증 안내 임베드와 버튼을 현재 채널에 전송합니다.'))
         .setDefaultMemberPermissions(discord_js_1.PermissionFlagsBits.Administrator),
     new discord_js_1.SlashCommandBuilder()
-        .setName('인원수')
-        .setDescription('현재까지 인증된 인원 수를 확인합니다.')
+        .setName('인원')
+        .setDescription('인원 관련 명령어입니다.')
+        .addSubcommand(sub => sub.setName('수')
+        .setDescription('현재까지 인증된 인원 수를 확인합니다.'))
         .setDefaultMemberPermissions(discord_js_1.PermissionFlagsBits.Administrator),
     new discord_js_1.SlashCommandBuilder()
         .setName('불러오기')
@@ -113,8 +121,18 @@ async function handleSlashCommand(interaction) {
             await interaction.reply({ content: '웹훅 등록이 완료되었습니다.', flags: discord_js_1.MessageFlags.Ephemeral });
             break;
         }
-        // /역할설정 — 인증 완료 시 지급할 역할 등록
+        // /역할 설정 or /역할 해제 or /역할설정
+        case '역할':
         case '역할설정': {
+            const subcommand = interaction.options.getSubcommand(false);
+            if (subcommand === '해제') {
+                db_1.dbOps.setRole(interaction.guildId, '');
+                await interaction.reply({
+                    content: '지급 역할 설정을 해제했습니다. (지급 역할: 없음)',
+                    flags: discord_js_1.MessageFlags.Ephemeral,
+                });
+                break;
+            }
             const role = interaction.options.getRole('role', true);
             db_1.dbOps.setRole(interaction.guildId, role.id);
             // 봇 역할과의 서열 비교
@@ -129,11 +147,13 @@ async function handleSlashCommand(interaction) {
             });
             break;
         }
-        // /인증메시지 — 두 번째 사진과 동일한 임베드 및 버튼 전송
+        // /인증 메시지 or /인증메시지
+        case '인증':
         case '인증메시지': {
-            if (!db_1.dbOps.getWebhook(interaction.guildId)) {
+            const guild = db_1.dbOps.getWebhook(interaction.guildId);
+            if (!guild || !guild.webhook_url) {
                 await interaction.reply({
-                    content: '먼저 `/설정` 명령어로 웹훅을 등록해 주세요.',
+                    content: '웹훅이 설정되지 않았습니다. 먼저 `/설정` 명령어로 웹훅 URL을 등록해 주세요.',
                     flags: discord_js_1.MessageFlags.Ephemeral,
                 });
                 return;
@@ -153,8 +173,9 @@ async function handleSlashCommand(interaction) {
                     embeds: [embed],
                     components: [row],
                 });
+                const roleText = guild.role_id ? `<@&${guild.role_id}>` : '없음';
                 await interaction.reply({
-                    content: '인증 메시지를 현재 채널에 보냈습니다.',
+                    content: `인증 메시지를 현재 채널에 보냈습니다. (지급 역할: ${roleText})`,
                     flags: discord_js_1.MessageFlags.Ephemeral,
                 });
             }
@@ -166,7 +187,8 @@ async function handleSlashCommand(interaction) {
             }
             break;
         }
-        // /인원수 — DB 저장 인원 조회
+        // /인원 수 or /인원수
+        case '인원':
         case '인원수': {
             const count = db_1.dbOps.getUserCount(interaction.guildId);
             await interaction.reply({

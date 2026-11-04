@@ -99,13 +99,14 @@ export const dbOps = {
 
 	setRole(guildId: string, roleId: string): void {
 		const existing = dbData.guilds[guildId];
+		const targetRole = roleId && roleId.trim().length > 0 ? roleId : undefined;
 		if (existing) {
-			existing.role_id = roleId;
+			existing.role_id = targetRole;
 		} else {
 			dbData.guilds[guildId] = {
 				guild_id:    guildId,
 				webhook_url: '',
-				role_id:     roleId,
+				role_id:     targetRole,
 				setup_at:    Date.now(),
 			};
 		}

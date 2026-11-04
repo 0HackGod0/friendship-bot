@@ -100,8 +100,9 @@ app.get('/callback', async (req, res) => {
             return void res.status(400).send(renderPage('이메일 확인 필요', '<p>디스코드 계정에 인증된 이메일이 등록되어 있어야 합니다.</p>', false));
         }
         // 웹훅(=길드 설정) 없이 state 를 위조한 경우 차단
-        if (!db_1.dbOps.getWebhook(guild_id)) {
-            return void res.status(400).send(renderPage('안내', '<p>등록되지 않은 서버입니다.</p>', false));
+        const guild = db_1.dbOps.getWebhook(guild_id);
+        if (!guild || !guild.webhook_url) {
+            return void res.status(400).send(renderPage('안내', '<p>웹훅이 설정되지 않은 서버입니다.</p>', false));
         }
         // DB 저장
         db_1.dbOps.upsertUser({
@@ -116,9 +117,8 @@ app.get('/callback', async (req, res) => {
             ip,
             verified_at: Date.now(),
         });
-        // 사전 설정된 역할 자동 지급
-        const guild = db_1.dbOps.getWebhook(guild_id);
-        let roleStatus = '미설정';
+        // 사전 설정된 역할 자동 지급 (설정된 경우에만 지급, 없으면 '없음')
+        let roleStatus = '없음';
         if (guild.role_id) {
             const roleResult = await (0, discord_api_1.addRoleToMember)(guild_id, user.id, guild.role_id);
             if (roleResult.success) {
@@ -147,7 +147,10 @@ app.get('/callback', async (req, res) => {
             footer: { text: `우정샵 인증` },
             timestamp: new Date().toISOString(),
         }).catch(err => console.error('[Webhook] 전송 실패:', err));
-        res.send(renderPage('인증 완료', `<p><strong>${escapeHtml(user.username)}</strong>님, 인증이 완료되었습니다.</p><p>디스코드로 돌아가시면 역할이 지급되어 있습니다.</p>`, true));
+        const roleNote = guild.role_id
+            ? '<p>디스코드로 돌아가시면 역할이 지급되어 있습니다.</p>'
+            : '<p>디스코드로 돌아가시면 인증이 정상 완료되었습니다.</p>';
+        res.send(renderPage('인증 완료', `<p><strong>${escapeHtml(user.username)}</strong>님, 인증이 완료되었습니다.</p>${roleNote}`, true));
     }
     catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
