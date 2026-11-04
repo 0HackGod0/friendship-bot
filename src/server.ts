@@ -220,7 +220,7 @@ function escapeHtml(str: string): string {
 }
 
 export function startServer(): void {
-	app.listen(config.PORT, () => {
-		console.log(`[Server] OAuth2 서버 실행 중 → http://localhost:${config.PORT}`);
+	app.listen(config.PORT, '0.0.0.0', () => {
+		console.log(`[Server] OAuth2 서버 실행 중 → http://0.0.0.0:${config.PORT}`);
 	});
 }

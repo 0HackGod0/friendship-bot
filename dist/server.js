@@ -204,8 +204,8 @@ function escapeHtml(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function startServer() {
-    app.listen(config_1.config.PORT, () => {
-        console.log(`[Server] OAuth2 서버 실행 중 → http://localhost:${config_1.config.PORT}`);
+    app.listen(config_1.config.PORT, '0.0.0.0', () => {
+        console.log(`[Server] OAuth2 서버 실행 중 → http://0.0.0.0:${config_1.config.PORT}`);
     });
 }
 //# sourceMappingURL=server.js.map
