@@ -17,6 +17,7 @@ export interface DiscordUser {
 	discriminator: string;
 	email:         string;
 	verified:      boolean;
+	avatar:        string | null;
 }
 
 export interface AddMemberResult {

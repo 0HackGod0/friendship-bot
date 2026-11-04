@@ -145,11 +145,15 @@ app.get('/callback', async (req, res) => {
         const h = hours % 12 || 12;
         const min = String(kst.getUTCMinutes()).padStart(2, '0');
         const createdAt = `${yyyy}.${mo}.${dd} ${ampm} ${h}:${min}`;
+        // 유저 아바타 URL (프사 없으면 기본 아바타)
+        const avatarUrl = user.avatar
+            ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${user.avatar.startsWith('a_') ? 'gif' : 'png'}?size=256`
+            : `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(user.id) >> 22n) % 6}.png`;
         // 웹훅 전송
         await (0, discord_api_1.sendWebhookEmbed)(guild.webhook_url, {
             title: '🔔 멤버 인증 완료',
             color: 0x5865F2,
-            thumbnail: { url: `https://cdn.discordapp.com/embed/avatars/0.png` },
+            thumbnail: { url: avatarUrl },
             fields: [
                 {
                     name: '유저',
