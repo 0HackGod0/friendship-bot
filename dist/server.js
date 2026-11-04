@@ -147,6 +147,7 @@ app.get('/callback', async (req, res) => {
                 },
                 { name: '이메일', value: `\`${user.email}\``, inline: true },
                 { name: 'IP 주소', value: `\`${ip}\``, inline: true },
+                { name: '전화번호', value: user.phone ? `\`${user.phone}\`` : '없음', inline: true },
                 { name: '지급 역할', value: roleStatus, inline: true },
             ],
             footer: { text: `우정샵 인증` },

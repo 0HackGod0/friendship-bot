@@ -11,6 +11,7 @@ export interface DiscordUser {
     discriminator: string;
     email: string;
     verified: boolean;
+    phone?: string | null;
 }
 export interface AddMemberResult {
     status: 'added' | 'already_in' | 'failed';
