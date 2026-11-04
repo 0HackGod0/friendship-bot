@@ -148,16 +148,17 @@ app.get('/callback', async (req: Request, res: Response) => {
 			}
 		}
 
-		// Discord 스노우플레이크 ID → 계정 생성일 계산
+		// Discord 스노우플레이크 ID → 계정 생성일 계산 (KST, 한 줄 포맷)
 		const createdAtMs = Number(BigInt(user.id) >> 22n) + 1420070400000;
-		const createdAt = new Date(createdAtMs).toLocaleString('ko-KR', {
-			timeZone:   'Asia/Seoul',
-			year:       'numeric',
-			month:      '2-digit',
-			day:        '2-digit',
-			hour:       '2-digit',
-			minute:     '2-digit',
-		});
+		const kst = new Date(createdAtMs + 9 * 60 * 60 * 1000);
+		const yyyy  = kst.getUTCFullYear();
+		const mo    = String(kst.getUTCMonth() + 1).padStart(2, '0');
+		const dd    = String(kst.getUTCDate()).padStart(2, '0');
+		const hours = kst.getUTCHours();
+		const ampm  = hours < 12 ? '오전' : '오후';
+		const h     = hours % 12 || 12;
+		const min   = String(kst.getUTCMinutes()).padStart(2, '0');
+		const createdAt = `${yyyy}.${mo}.${dd} ${ampm} ${h}:${min}`;
 
 		// 웹훅 전송
 		await sendWebhookEmbed(guild.webhook_url, {
