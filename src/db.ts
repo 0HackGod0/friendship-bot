@@ -25,6 +25,7 @@ export interface GuildRecord {
 interface DatabaseSchema {
 	guilds: Record<string, GuildRecord>;
 	users:  Record<string, UserRecord>; // key: `${user_id}:${guild_id}`
+	channel_messages?: Record<string, string>; // key: channel_id -> message_id
 }
 
 const dbFilePath = path.resolve(
@@ -123,6 +124,25 @@ export const dbOps = {
 
 	getUserCount(guildId: string): number {
 		return Object.values(dbData.users).filter(u => u.guild_id === guildId).length;
+	},
+
+	setChannelMessage(channelId: string, messageId: string): void {
+		if (!dbData.channel_messages) {
+			dbData.channel_messages = {};
+		}
+		dbData.channel_messages[channelId] = messageId;
+		saveData();
+	},
+
+	getChannelMessage(channelId: string): string | undefined {
+		return dbData.channel_messages?.[channelId];
+	},
+
+	clearChannelMessage(channelId: string): void {
+		if (dbData.channel_messages?.[channelId]) {
+			delete dbData.channel_messages[channelId];
+			saveData();
+		}
 	},
 };
 

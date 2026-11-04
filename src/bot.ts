@@ -136,26 +136,69 @@ export function startBot(): void {
 
 // ─── 슬래시 커맨드 핸들러 ───────────────────────────────────────────────────
 
+/**
+ * ephemeral 응답을 전송하고 5.5초 후 자동으로 닫히도록(삭제) 설정
+ */
+async function replyAutoDelete(
+	interaction: ChatInputCommandInteraction | ButtonInteraction,
+	options: string | { content?: string; embeds?: EmbedBuilder[]; components?: any[] },
+	delayMs = 5500
+): Promise<void> {
+	const replyOptions: any = typeof options === 'string'
+		? { content: options, flags: MessageFlags.Ephemeral }
+		: { flags: MessageFlags.Ephemeral, ...options };
+
+	if (interaction.replied || interaction.deferred) {
+		await interaction.editReply(replyOptions);
+	} else {
+		await interaction.reply(replyOptions);
+	}
+
+	setTimeout(() => {
+		interaction.deleteReply().catch(() => {});
+	}, delayMs);
+}
+
+/**
+ * 버튼 상호작용 업데이트 후 5.5초 후 자동으로 닫히도록(삭제) 설정
+ */
+async function updateAutoDelete(
+	interaction: ButtonInteraction,
+	options: string | { content?: string; embeds?: EmbedBuilder[]; components?: any[] },
+	delayMs = 5500
+): Promise<void> {
+	const updateOptions: any = typeof options === 'string'
+		? { content: options, components: [] }
+		: options;
+
+	if (interaction.deferred) {
+		await interaction.editReply(updateOptions);
+	} else {
+		await interaction.update(updateOptions);
+	}
+
+	setTimeout(() => {
+		interaction.deleteReply().catch(() => {});
+	}, delayMs);
+}
+
 async function handleSlashCommand(interaction: ChatInputCommandInteraction): Promise<void> {
 	if (!interaction.guildId) {
-		await interaction.reply({ content: '서버 안에서만 사용할 수 있는 명령어입니다.', flags: MessageFlags.Ephemeral });
+		await replyAutoDelete(interaction, '서버 안에서만 사용할 수 있는 명령어입니다.');
 		return;
 	}
 
 	// 일반 명령어(후원) 외에는 관리자 권한 확인
 	if (interaction.commandName !== '후원') {
 		if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-			await interaction.reply({
-				content: '서버 관리자만 사용할 수 있는 명령어입니다.',
-				flags: MessageFlags.Ephemeral,
-			});
+			await replyAutoDelete(interaction, '서버 관리자만 사용할 수 있는 명령어입니다.');
 			return;
 		}
 	}
 
 	switch (interaction.commandName) {
 
-		// /후원 — 누구나 조회 가능 (본인에게만 표시)
+		// /후원 — 누구나 조회 가능 (본인에게만 표시, 자동 닫힘 제외)
 		case '후원': {
 			await interaction.reply({
 				content: [
@@ -180,20 +223,17 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 				!url.startsWith('https://discord.com/api/webhooks/') &&
 				!url.startsWith('https://discordapp.com/api/webhooks/')
 			) {
-				await interaction.reply({
-					content: '올바른 디스코드 웹훅 주소가 아닙니다.\n(https://discord.com/api/webhooks/... 형식이어야 합니다)',
-					flags: MessageFlags.Ephemeral,
-				});
+				await replyAutoDelete(
+					interaction,
+					'올바른 디스코드 웹훅 주소가 아닙니다.\n(https://discord.com/api/webhooks/... 형식이어야 합니다)'
+				);
 				return;
 			}
 
 			const existing = dbOps.getWebhook(interaction.guildId);
 			if (existing?.webhook_url) {
 				if (existing.webhook_url === url) {
-					await interaction.reply({
-						content: '이미 동일한 웹훅 주소로 설정되어 있습니다.',
-						flags: MessageFlags.Ephemeral,
-					});
+					await replyAutoDelete(interaction, '이미 동일한 웹훅 주소로 설정되어 있습니다.');
 					return;
 				}
 
@@ -230,7 +270,7 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 			}
 
 			dbOps.setWebhook(interaction.guildId, url);
-			await interaction.reply({ content: '웹훅 등록이 완료되었습니다.', flags: MessageFlags.Ephemeral });
+			await replyAutoDelete(interaction, '웹훅 등록이 완료되었습니다.');
 			break;
 		}
 
@@ -242,10 +282,7 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 
 			if (subcommand === '해제') {
 				if (!existing?.role_id) {
-					await interaction.reply({
-						content: '현재 설정된 지급 역할이 없습니다. (지급 역할: 없음)',
-						flags: MessageFlags.Ephemeral,
-					});
+					await replyAutoDelete(interaction, '현재 설정된 지급 역할이 없습니다. (지급 역할: 없음)');
 					return;
 				}
 
@@ -282,10 +319,7 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 
 			if (existing?.role_id) {
 				if (existing.role_id === role.id) {
-					await interaction.reply({
-						content: `이미 <@&${role.id}> 역할로 설정되어 있습니다.`,
-						flags: MessageFlags.Ephemeral,
-					});
+					await replyAutoDelete(interaction, `이미 <@&${role.id}> 역할로 설정되어 있습니다.`);
 					return;
 				}
 
@@ -331,23 +365,53 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 				warning = '\n\n⚠️ **주의:** 서버 설정(역할)에서 봇의 역할이 이 역할보다 위에 있어야 정상 지급됩니다.';
 			}
 
-			await interaction.reply({
-				content: `인증 완료 시 <@&${role.id}> 역할을 지급하도록 설정했습니다.${warning}`,
-				flags: MessageFlags.Ephemeral,
-			});
+			await replyAutoDelete(interaction, `인증 완료 시 <@&${role.id}> 역할을 지급하도록 설정했습니다.${warning}`);
 			break;
 		}
 
-		// /인증 메시지 or /인증메시지
+		// /인증 메시지 or /인증메시지 (한 채널당 최대 1개 제한)
 		case '인증':
 		case '인증메시지': {
 			const guild = dbOps.getWebhook(interaction.guildId);
 			if (!guild || !guild.webhook_url) {
-				await interaction.reply({
-					content: '웹훅이 설정되지 않았습니다. 먼저 `/설정` 명령어로 웹훅 URL을 등록해 주세요.',
-					flags: MessageFlags.Ephemeral,
-				});
+				await replyAutoDelete(interaction, '웹훅이 설정되지 않았습니다. 먼저 `/설정` 명령어로 웹훅 URL을 등록해 주세요.');
 				return;
+			}
+
+			if (!interaction.channel || !('send' in interaction.channel)) {
+				await replyAutoDelete(interaction, '메시지를 보낼 수 없는 채널입니다.');
+				return;
+			}
+
+			// 한 채널당 최대 1개의 인증 메시지만 허용
+			const existingMsgId = dbOps.getChannelMessage(interaction.channelId);
+			if (existingMsgId && 'messages' in interaction.channel) {
+				const existingMsg = await interaction.channel.messages.fetch(existingMsgId).catch(() => null);
+				if (existingMsg) {
+					// 기존 메시지가 아직 채널에 살아있는 경우 -> 교체 확인 버튼 제공
+					const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+						new ButtonBuilder()
+							.setCustomId(`replace_msg:${interaction.channelId}:${existingMsgId}`)
+							.setLabel('기존 메시지 삭제 후 새로 올리기')
+							.setStyle(ButtonStyle.Danger),
+						new ButtonBuilder()
+							.setCustomId('replace_msg:cancel')
+							.setLabel('취소')
+							.setStyle(ButtonStyle.Secondary)
+					);
+
+					await interaction.reply({
+						content: [
+							'⚠️ **이미 이 채널에 인증 메시지가 게시되어 있습니다.**',
+							'한 채널당 최대 1개의 인증 메시지만 올릴 수 있습니다.',
+							'',
+							'기존 메시지를 삭제하고 이 위치에 새로 올리시겠습니까?',
+						].join('\n'),
+						components: [row],
+						flags: MessageFlags.Ephemeral,
+					});
+					return;
+				}
 			}
 
 			const buttonUrl = getDirectDiscordAuthUrl(interaction.guildId);
@@ -364,23 +428,15 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 					.setURL(buttonUrl)
 			);
 
-			// 채널에 공개 전송
-			if (interaction.channel && 'send' in interaction.channel) {
-				await interaction.channel.send({
-					embeds: [embed],
-					components: [row],
-				});
-				const roleText = guild.role_id ? `<@&${guild.role_id}>` : '없음';
-				await interaction.reply({
-					content: `인증 메시지를 현재 채널에 보냈습니다. (지급 역할: ${roleText})`,
-					flags: MessageFlags.Ephemeral,
-				});
-			} else {
-				await interaction.reply({
-					content: '메시지를 보낼 수 없는 채널입니다.',
-					flags: MessageFlags.Ephemeral,
-				});
-			}
+			const sentMsg = await interaction.channel.send({
+				embeds: [embed],
+				components: [row],
+			});
+
+			dbOps.setChannelMessage(interaction.channelId, sentMsg.id);
+
+			const roleText = guild.role_id ? `<@&${guild.role_id}>` : '없음';
+			await replyAutoDelete(interaction, `인증 메시지를 현재 채널에 보냈습니다. (지급 역할: ${roleText})`);
 			break;
 		}
 
@@ -388,29 +444,20 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 		case '인원':
 		case '인원수': {
 			const count = dbOps.getUserCount(interaction.guildId);
-			await interaction.reply({
-				content: `현재까지 총 **${count}명**이 인증되었습니다.`,
-				flags: MessageFlags.Ephemeral,
-			});
+			await replyAutoDelete(interaction, `현재까지 총 **${count}명**이 인증되었습니다.`);
 			break;
 		}
 
 		// /불러오기 — 확인 프롬프트 표시
 		case '불러오기': {
 			if (activeRestores.has(interaction.guildId)) {
-				await interaction.reply({
-					content: '이미 복구 작업이 진행 중입니다.',
-					flags: MessageFlags.Ephemeral,
-				});
+				await replyAutoDelete(interaction, '이미 복구 작업이 진행 중입니다.');
 				return;
 			}
 
 			const count = dbOps.getUserCount(interaction.guildId);
 			if (count === 0) {
-				await interaction.reply({
-					content: '저장된 인증 인원이 없습니다.',
-					flags: MessageFlags.Ephemeral,
-				});
+				await replyAutoDelete(interaction, '저장된 인증 인원이 없습니다.');
 				return;
 			}
 
@@ -454,7 +501,7 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 	if (interaction.customId.startsWith('change:cancel:')) {
 		const token = interaction.customId.split(':')[2];
 		if (token) pendingChanges.delete(token);
-		await interaction.update({ content: '변경 작업이 취소되었습니다.', components: [] });
+		await updateAutoDelete(interaction, '변경 작업이 취소되었습니다.');
 		return;
 	}
 
@@ -466,14 +513,14 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 		const item = pendingChanges.get(token);
 		if (!item || item.expires < Date.now()) {
 			if (token) pendingChanges.delete(token);
-			await interaction.update({ content: '확인 유효 시간이 만료되었습니다. 다시 시도해 주세요.', components: [] });
+			await updateAutoDelete(interaction, '확인 유효 시간이 만료되었습니다. 다시 시도해 주세요.');
 			return;
 		}
 		pendingChanges.delete(token);
 
 		if (item.type === 'webhook' && item.value) {
 			dbOps.setWebhook(item.guildId, item.value);
-			await interaction.update({ content: '✅ 웹훅 주소가 성공적으로 변경되었습니다.', components: [] });
+			await updateAutoDelete(interaction, '✅ 웹훅 주소가 성공적으로 변경되었습니다.');
 			return;
 		}
 
@@ -487,20 +534,70 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 				warning = '\n\n⚠️ **주의:** 서버 설정(역할)에서 봇의 역할이 이 역할보다 위에 있어야 정상 지급됩니다.';
 			}
 
-			await interaction.update({ content: `✅ 지급 역할이 <@&${item.value}> 역할로 변경되었습니다.${warning}`, components: [] });
+			await updateAutoDelete(interaction, `✅ 지급 역할이 <@&${item.value}> 역할로 변경되었습니다.${warning}`);
 			return;
 		}
 
 		if (item.type === 'clear_role') {
 			dbOps.setRole(item.guildId, '');
-			await interaction.update({ content: '✅ 지급 역할 설정을 해제했습니다. (지급 역할: 없음)', components: [] });
+			await updateAutoDelete(interaction, '✅ 지급 역할 설정을 해제했습니다. (지급 역할: 없음)');
 			return;
 		}
 	}
 
-	// 취소
+	// 기존 인증 메시지 교체 취소
+	if (interaction.customId === 'replace_msg:cancel') {
+		await updateAutoDelete(interaction, '인증 메시지 게시가 취소되었습니다.');
+		return;
+	}
+
+	// 기존 인증 메시지 교체 확인
+	if (interaction.customId.startsWith('replace_msg:')) {
+		const parts = interaction.customId.split(':');
+		const channelId = parts[1];
+		const oldMsgId = parts[2];
+		if (!channelId || !oldMsgId || !interaction.guildId) return;
+
+		const channel = interaction.channel;
+		if (channel && 'messages' in channel && 'send' in channel) {
+			// 기존 메시지 삭제
+			const oldMsg = await channel.messages.fetch(oldMsgId).catch(() => null);
+			if (oldMsg) {
+				await oldMsg.delete().catch(() => {});
+			}
+
+			// 새 인증 메시지 전송
+			const buttonUrl = getDirectDiscordAuthUrl(interaction.guildId);
+			const embed = new EmbedBuilder()
+				.setTitle('❤️‍🔥 우정샵 인증봇 ❤️‍🔥')
+				.setDescription('아래 버튼을 눌러 인증을 진행해주세요.')
+				.setColor(0x2B2D31);
+
+			const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+				new ButtonBuilder()
+					.setStyle(ButtonStyle.Link)
+					.setLabel('인증하기')
+					.setURL(buttonUrl)
+			);
+
+			const sentMsg = await channel.send({
+				embeds: [embed],
+				components: [row],
+			});
+
+			dbOps.setChannelMessage(channelId, sentMsg.id);
+
+			const guild = dbOps.getWebhook(interaction.guildId);
+			const roleText = guild?.role_id ? `<@&${guild.role_id}>` : '없음';
+
+			await updateAutoDelete(interaction, `기존 인증 메시지를 삭제하고 새로 게시했습니다. (지급 역할: ${roleText})`);
+		}
+		return;
+	}
+
+	// 복구 취소
 	if (interaction.customId === 'restore:cancel') {
-		await interaction.update({ content: '복구 작업이 취소되었습니다.', components: [] });
+		await updateAutoDelete(interaction, '복구 작업이 취소되었습니다.');
 		return;
 	}
 
@@ -510,7 +607,7 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 		if (!guildId) return;
 
 		if (activeRestores.has(guildId)) {
-			await interaction.update({ content: '이미 복구 작업이 진행 중입니다.', components: [] });
+			await updateAutoDelete(interaction, '이미 복구 작업이 진행 중입니다.');
 			return;
 		}
 
@@ -580,6 +677,10 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 				`• 실패: **${failed}명**`,
 			].join('\n'),
 		});
+
+		setTimeout(() => {
+			interaction.deleteReply().catch(() => {});
+		}, 5500);
 	}
 }
 

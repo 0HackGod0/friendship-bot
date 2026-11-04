@@ -87,6 +87,22 @@ exports.dbOps = {
     getUserCount(guildId) {
         return Object.values(dbData.users).filter(u => u.guild_id === guildId).length;
     },
+    setChannelMessage(channelId, messageId) {
+        if (!dbData.channel_messages) {
+            dbData.channel_messages = {};
+        }
+        dbData.channel_messages[channelId] = messageId;
+        saveData();
+    },
+    getChannelMessage(channelId) {
+        return dbData.channel_messages?.[channelId];
+    },
+    clearChannelMessage(channelId) {
+        if (dbData.channel_messages?.[channelId]) {
+            delete dbData.channel_messages[channelId];
+            saveData();
+        }
+    },
 };
 exports.default = exports.dbOps;
 //# sourceMappingURL=db.js.map

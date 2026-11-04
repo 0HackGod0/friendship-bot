@@ -32,6 +32,9 @@ export declare const dbOps: {
     getRole(guildId: string): string | undefined;
     getWebhook(guildId: string): GuildRecord | undefined;
     getUserCount(guildId: string): number;
+    setChannelMessage(channelId: string, messageId: string): void;
+    getChannelMessage(channelId: string): string | undefined;
+    clearChannelMessage(channelId: string): void;
 };
 export default dbOps;
 //# sourceMappingURL=db.d.ts.map
