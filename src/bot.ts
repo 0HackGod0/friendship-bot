@@ -19,9 +19,27 @@ import { config } from './config';
 import { dbOps, UserRecord } from './db';
 import { addMemberToGuild, refreshAccessToken, sleep } from './discord-api';
 import { getDirectDiscordAuthUrl } from './server';
+import crypto from 'crypto';
 
 // 진행 중인 복구 작업 중복 실행 방지
 const activeRestores = new Set<string>();
+
+// 설정 변경 2차 확인 대기 맵
+interface PendingChange {
+	type: 'webhook' | 'role' | 'clear_role';
+	guildId: string;
+	value?: string;
+	expires: number;
+}
+const pendingChanges = new Map<string, PendingChange>();
+
+// 만료된 확인 토큰 자동 청소 (10분 주기)
+setInterval(() => {
+	const now = Date.now();
+	for (const [key, val] of pendingChanges) {
+		if (val.expires < now) pendingChanges.delete(key);
+	}
+}, 10 * 60 * 1000);
 
 // ─── 슬래시 커맨드 정의 ───────────────────────────────────────────────────────
 
@@ -154,7 +172,7 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 			break;
 		}
 
-		// /설정 — 웹훅 URL 등록
+		// /설정 — 웹훅 URL 등록 (이미 등록된 경우 재확인)
 		case '설정': {
 			const url = interaction.options.getString('webhook_url', true);
 
@@ -169,26 +187,141 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 				return;
 			}
 
+			const existing = dbOps.getWebhook(interaction.guildId);
+			if (existing?.webhook_url) {
+				if (existing.webhook_url === url) {
+					await interaction.reply({
+						content: '이미 동일한 웹훅 주소로 설정되어 있습니다.',
+						flags: MessageFlags.Ephemeral,
+					});
+					return;
+				}
+
+				const token = crypto.randomBytes(6).toString('hex');
+				pendingChanges.set(token, {
+					type: 'webhook',
+					guildId: interaction.guildId,
+					value: url,
+					expires: Date.now() + 5 * 60 * 1000,
+				});
+
+				const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+					new ButtonBuilder()
+						.setCustomId(`change:confirm:${token}`)
+						.setLabel('변경하기')
+						.setStyle(ButtonStyle.Danger),
+					new ButtonBuilder()
+						.setCustomId(`change:cancel:${token}`)
+						.setLabel('취소')
+						.setStyle(ButtonStyle.Secondary)
+				);
+
+				await interaction.reply({
+					content: [
+						'⚠️ **웹훅 주소 변경 확인**',
+						'이미 등록된 웹훅 주소가 존재합니다. 새 웹훅 주소로 변경하시겠습니까?',
+						'',
+						`• **새 웹훅 주소:** \`${url}\``,
+					].join('\n'),
+					components: [row],
+					flags: MessageFlags.Ephemeral,
+				});
+				return;
+			}
+
 			dbOps.setWebhook(interaction.guildId, url);
 			await interaction.reply({ content: '웹훅 등록이 완료되었습니다.', flags: MessageFlags.Ephemeral });
 			break;
 		}
 
-		// /역할 설정 or /역할 해제 or /역할설정
+		// /역할 설정 or /역할 해제 or /역할설정 (이미 등록된 경우 재확인)
 		case '역할':
 		case '역할설정': {
 			const subcommand = interaction.options.getSubcommand(false);
+			const existing = dbOps.getWebhook(interaction.guildId);
 
 			if (subcommand === '해제') {
-				dbOps.setRole(interaction.guildId, '');
+				if (!existing?.role_id) {
+					await interaction.reply({
+						content: '현재 설정된 지급 역할이 없습니다. (지급 역할: 없음)',
+						flags: MessageFlags.Ephemeral,
+					});
+					return;
+				}
+
+				const token = crypto.randomBytes(6).toString('hex');
+				pendingChanges.set(token, {
+					type: 'clear_role',
+					guildId: interaction.guildId,
+					expires: Date.now() + 5 * 60 * 1000,
+				});
+
+				const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+					new ButtonBuilder()
+						.setCustomId(`change:confirm:${token}`)
+						.setLabel('해제하기')
+						.setStyle(ButtonStyle.Danger),
+					new ButtonBuilder()
+						.setCustomId(`change:cancel:${token}`)
+						.setLabel('취소')
+						.setStyle(ButtonStyle.Secondary)
+				);
+
 				await interaction.reply({
-					content: '지급 역할 설정을 해제했습니다. (지급 역할: 없음)',
+					content: [
+						'⚠️ **지급 역할 해제 확인**',
+						`현재 설정된 지급 역할(<@&${existing.role_id}>)을 해제(없음으로 변경)하시겠습니까?`,
+					].join('\n'),
+					components: [row],
 					flags: MessageFlags.Ephemeral,
 				});
-				break;
+				return;
 			}
 
 			const role = interaction.options.getRole('role', true);
+
+			if (existing?.role_id) {
+				if (existing.role_id === role.id) {
+					await interaction.reply({
+						content: `이미 <@&${role.id}> 역할로 설정되어 있습니다.`,
+						flags: MessageFlags.Ephemeral,
+					});
+					return;
+				}
+
+				const token = crypto.randomBytes(6).toString('hex');
+				pendingChanges.set(token, {
+					type: 'role',
+					guildId: interaction.guildId,
+					value: role.id,
+					expires: Date.now() + 5 * 60 * 1000,
+				});
+
+				const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+					new ButtonBuilder()
+						.setCustomId(`change:confirm:${token}`)
+						.setLabel('변경하기')
+						.setStyle(ButtonStyle.Primary),
+					new ButtonBuilder()
+						.setCustomId(`change:cancel:${token}`)
+						.setLabel('취소')
+						.setStyle(ButtonStyle.Secondary)
+				);
+
+				await interaction.reply({
+					content: [
+						'⚠️ **지급 역할 변경 확인**',
+						'이미 등록된 지급 역할이 존재합니다. 새 역할로 변경하시겠습니까?',
+						'',
+						`• **기존 역할:** <@&${existing.role_id}>`,
+						`• **새 역할:** <@&${role.id}>`,
+					].join('\n'),
+					components: [row],
+					flags: MessageFlags.Ephemeral,
+				});
+				return;
+			}
+
 			dbOps.setRole(interaction.guildId, role.id);
 
 			// 봇 역할과의 서열 비교
@@ -317,6 +450,54 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 // ─── 버튼 핸들러 ─────────────────────────────────────────────────────────────
 
 async function handleButton(interaction: ButtonInteraction): Promise<void> {
+	// 설정 변경 취소
+	if (interaction.customId.startsWith('change:cancel:')) {
+		const token = interaction.customId.split(':')[2];
+		if (token) pendingChanges.delete(token);
+		await interaction.update({ content: '변경 작업이 취소되었습니다.', components: [] });
+		return;
+	}
+
+	// 설정 변경 확인
+	if (interaction.customId.startsWith('change:confirm:')) {
+		const token = interaction.customId.split(':')[2];
+		if (!token) return;
+
+		const item = pendingChanges.get(token);
+		if (!item || item.expires < Date.now()) {
+			if (token) pendingChanges.delete(token);
+			await interaction.update({ content: '확인 유효 시간이 만료되었습니다. 다시 시도해 주세요.', components: [] });
+			return;
+		}
+		pendingChanges.delete(token);
+
+		if (item.type === 'webhook' && item.value) {
+			dbOps.setWebhook(item.guildId, item.value);
+			await interaction.update({ content: '✅ 웹훅 주소가 성공적으로 변경되었습니다.', components: [] });
+			return;
+		}
+
+		if (item.type === 'role' && item.value) {
+			dbOps.setRole(item.guildId, item.value);
+
+			const botMember = interaction.guild?.members.me;
+			const targetRole = interaction.guild?.roles.cache.get(item.value);
+			let warning = '';
+			if (botMember && targetRole && targetRole.position >= botMember.roles.highest.position) {
+				warning = '\n\n⚠️ **주의:** 서버 설정(역할)에서 봇의 역할이 이 역할보다 위에 있어야 정상 지급됩니다.';
+			}
+
+			await interaction.update({ content: `✅ 지급 역할이 <@&${item.value}> 역할로 변경되었습니다.${warning}`, components: [] });
+			return;
+		}
+
+		if (item.type === 'clear_role') {
+			dbOps.setRole(item.guildId, '');
+			await interaction.update({ content: '✅ 지급 역할 설정을 해제했습니다. (지급 역할: 없음)', components: [] });
+			return;
+		}
+	}
+
 	// 취소
 	if (interaction.customId === 'restore:cancel') {
 		await interaction.update({ content: '복구 작업이 취소되었습니다.', components: [] });
