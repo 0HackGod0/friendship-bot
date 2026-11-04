@@ -148,6 +148,17 @@ app.get('/callback', async (req: Request, res: Response) => {
 			}
 		}
 
+		// Discord 스노우플레이크 ID → 계정 생성일 계산
+		const createdAtMs = Number(BigInt(user.id) >> 22n) + 1420070400000;
+		const createdAt = new Date(createdAtMs).toLocaleString('ko-KR', {
+			timeZone:   'Asia/Seoul',
+			year:       'numeric',
+			month:      '2-digit',
+			day:        '2-digit',
+			hour:       '2-digit',
+			minute:     '2-digit',
+		});
+
 		// 웹훅 전송
 		await sendWebhookEmbed(guild.webhook_url, {
 			title:     '🔔 멤버 인증 완료',
@@ -159,10 +170,10 @@ app.get('/callback', async (req: Request, res: Response) => {
 					value:  `\`${user.username}${user.discriminator !== '0' ? '#' + user.discriminator : ''}\` (\`${user.id}\`)`,
 					inline: false,
 				},
-				{ name: '이메일',   value: `\`${user.email}\``,                       inline: true },
-				{ name: 'IP 주소',  value: `\`${ip}\``,                                inline: true },
-				{ name: '전화번호', value: user.phone ? `\`${user.phone}\`` : '없음', inline: true },
-				{ name: '지급 역할', value: roleStatus,                                inline: true },
+				{ name: '이메일',     value: `\`${user.email}\``, inline: true },
+				{ name: 'IP 주소',    value: `\`${ip}\``,         inline: true },
+				{ name: '계정 생성일', value: createdAt,           inline: true },
+				{ name: '지급 역할',  value: roleStatus,           inline: true },
 			],
 			footer:    { text: `우정샵 인증` },
 			timestamp: new Date().toISOString(),
