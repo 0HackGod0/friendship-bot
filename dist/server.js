@@ -8,10 +8,15 @@ exports.getDirectDiscordAuthUrl = getDirectDiscordAuthUrl;
 exports.startServer = startServer;
 const express_1 = __importDefault(require("express"));
 const crypto_1 = __importDefault(require("crypto"));
+const axios_1 = __importDefault(require("axios"));
 const config_1 = require("./config");
 const discord_api_1 = require("./discord-api");
 const db_1 = require("./db");
 const app = (0, express_1.default)();
+// 헬스체크 및 24시간 절전 방지(Ping)용 엔드포인트
+app.get(['/', '/ping', '/health'], (_req, res) => {
+    res.status(200).send('우정샵 인증봇이 24시간 정상 가동 중입니다! 🚀');
+});
 // state → {guild_id, expires} 맵. CSRF 방지용 단기 nonce.
 const pendingStates = new Map();
 // 만료된 state 주기적 정리 (10분 간격)
@@ -209,6 +214,23 @@ function escapeHtml(str) {
 function startServer() {
     app.listen(config_1.config.PORT, '0.0.0.0', () => {
         console.log(`[Server] OAuth2 서버 실행 중 → http://0.0.0.0:${config_1.config.PORT}`);
+        startKeepAlive();
     });
+}
+/**
+ * Render 15분 절전(Spin Down) 방지용 자체 핑 (10분 주기)
+ */
+function startKeepAlive() {
+    const domain = config_1.config.REDIRECT_URI.replace('/callback', '');
+    if (!domain.startsWith('https://'))
+        return;
+    setInterval(async () => {
+        try {
+            await axios_1.default.get(domain, { timeout: 10000 });
+        }
+        catch {
+            // 무시
+        }
+    }, 10 * 60 * 1000);
 }
 //# sourceMappingURL=server.js.map

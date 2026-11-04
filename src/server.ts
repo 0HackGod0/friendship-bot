@@ -1,10 +1,16 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
+import axios from 'axios';
 import { config } from './config';
 import { addRoleToMember, exchangeCode, fetchUser, sendWebhookEmbed } from './discord-api';
 import { dbOps } from './db';
 
 const app = express();
+
+// 헬스체크 및 24시간 절전 방지(Ping)용 엔드포인트
+app.get(['/', '/ping', '/health'], (_req: Request, res: Response) => {
+	res.status(200).send('우정샵 인증봇이 24시간 정상 가동 중입니다! 🚀');
+});
 
 // state → {guild_id, expires} 맵. CSRF 방지용 단기 nonce.
 const pendingStates = new Map<string, { guild_id: string; expires: number }>();
@@ -226,5 +232,22 @@ function escapeHtml(str: string): string {
 export function startServer(): void {
 	app.listen(config.PORT, '0.0.0.0', () => {
 		console.log(`[Server] OAuth2 서버 실행 중 → http://0.0.0.0:${config.PORT}`);
+		startKeepAlive();
 	});
+}
+
+/**
+ * Render 15분 절전(Spin Down) 방지용 자체 핑 (10분 주기)
+ */
+function startKeepAlive(): void {
+	const domain = config.REDIRECT_URI.replace('/callback', '');
+	if (!domain.startsWith('https://')) return;
+
+	setInterval(async () => {
+		try {
+			await axios.get(domain, { timeout: 10000 });
+		} catch {
+			// 무시
+		}
+	}, 10 * 60 * 1000);
 }
