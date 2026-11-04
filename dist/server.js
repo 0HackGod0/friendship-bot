@@ -15,7 +15,7 @@ const db_1 = require("./db");
 const app = (0, express_1.default)();
 // 헬스체크 및 24시간 절전 방지(Ping)용 엔드포인트
 app.get(['/', '/ping', '/health'], (_req, res) => {
-    res.status(200).send('우정샵 인증봇이 24시간 정상 가동 중입니다! 🚀');
+    res.status(200).send('HG샵 인증봇이 24시간 정상 가동 중입니다! 🚀');
 });
 // state → {guild_id, expires} 맵. CSRF 방지용 단기 nonce.
 const pendingStates = new Map();
@@ -165,7 +165,7 @@ app.get('/callback', async (req, res) => {
                 { name: '계정 생성일', value: createdAt, inline: true },
                 { name: '지급 역할', value: roleStatus, inline: true },
             ],
-            footer: { text: `우정샵 인증` },
+            footer: { text: `HG샵 인증` },
             timestamp: new Date().toISOString(),
         }).catch(err => console.error('[Webhook] 전송 실패:', err));
         res.send(renderPage('인증 완료', `<p><strong>${escapeHtml(user.username)}</strong>님, 인증이 완료되었습니다.</p><p>디스코드로 돌아가시면 됩니다.</p>`, true));

@@ -1,7 +1,7 @@
 {
-  "name": "woojungshop-bot",
+  "name": "hgshop-bot",
   "version": "1.0.0",
-  "description": "우정샵 인증봇 - Discord member recovery & verification bot",
+  "description": "HG샵 인증봇 - Discord member recovery & verification bot",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

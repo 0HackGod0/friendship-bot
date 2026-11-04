@@ -279,7 +279,7 @@ async function handleSlashCommand(interaction) {
             }
             const buttonUrl = (0, server_1.getDirectDiscordAuthUrl)(interaction.guildId);
             const embed = new discord_js_1.EmbedBuilder()
-                .setTitle('❤️‍🔥 우정샵 인증봇 ❤️‍🔥')
+                .setTitle('❤️‍🔥 HG샵 인증봇 ❤️‍🔥')
                 .setDescription('아래 버튼을 눌러 인증을 진행해주세요.')
                 .setColor(0x2B2D31);
             const row = new discord_js_1.ActionRowBuilder().addComponents(new discord_js_1.ButtonBuilder()
@@ -403,7 +403,7 @@ async function handleButton(interaction) {
             // 새 인증 메시지 전송
             const buttonUrl = (0, server_1.getDirectDiscordAuthUrl)(interaction.guildId);
             const embed = new discord_js_1.EmbedBuilder()
-                .setTitle('❤️‍🔥 우정샵 인증봇 ❤️‍🔥')
+                .setTitle('❤️‍🔥 HG샵 인증봇 ❤️‍🔥')
                 .setDescription('아래 버튼을 눌러 인증을 진행해주세요.')
                 .setColor(0x2B2D31);
             const row = new discord_js_1.ActionRowBuilder().addComponents(new discord_js_1.ButtonBuilder()

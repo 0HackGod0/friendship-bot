@@ -376,7 +376,7 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 			const buttonUrl = getDirectDiscordAuthUrl(interaction.guildId);
 
 			const embed = new EmbedBuilder()
-				.setTitle('❤️‍🔥 우정샵 인증봇 ❤️‍🔥')
+				.setTitle('❤️‍🔥 HG샵 인증봇 ❤️‍🔥')
 				.setDescription('아래 버튼을 눌러 인증을 진행해주세요.')
 				.setColor(0x2B2D31);
 
@@ -523,7 +523,7 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 			// 새 인증 메시지 전송
 			const buttonUrl = getDirectDiscordAuthUrl(interaction.guildId);
 			const embed = new EmbedBuilder()
-				.setTitle('❤️‍🔥 우정샵 인증봇 ❤️‍🔥')
+				.setTitle('❤️‍🔥 HG샵 인증봇 ❤️‍🔥')
 				.setDescription('아래 버튼을 눌러 인증을 진행해주세요.')
 				.setColor(0x2B2D31);
 
