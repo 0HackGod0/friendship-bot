@@ -1,0 +1,6 @@
+node_modules/
+cloudflared.exe
+.env
+recovery.json
+recovery.json.tmp
+*.bat
