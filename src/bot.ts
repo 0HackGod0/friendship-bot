@@ -26,7 +26,7 @@ const activeRestores = new Set<string>();
 
 // 설정 변경 2차 확인 대기 맵
 interface PendingChange {
-	type: 'webhook' | 'role' | 'clear_role';
+	type: 'webhook' | 'role';
 	guildId: string;
 	value?: string;
 	expires: number;
@@ -69,10 +69,6 @@ const commandDefs = [
 						.setDescription('지급할 역할을 선택합니다.')
 						.setRequired(true)
 				)
-		)
-		.addSubcommand(sub =>
-			sub.setName('해제')
-				.setDescription('설정된 지급 역할을 제거(없음으로 변경)합니다.')
 		)
 		.setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
@@ -274,47 +270,10 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction): Pro
 			break;
 		}
 
-		// /역할 설정 or /역할 해제 or /역할설정 (이미 등록된 경우 재확인)
+		// /역할 설정 or /역할설정 (이미 등록된 경우 재확인)
 		case '역할':
 		case '역할설정': {
-			const subcommand = interaction.options.getSubcommand(false);
 			const existing = dbOps.getWebhook(interaction.guildId);
-
-			if (subcommand === '해제') {
-				if (!existing?.role_id) {
-					await replyAutoDelete(interaction, '현재 설정된 지급 역할이 없습니다. (지급 역할: 없음)');
-					return;
-				}
-
-				const token = crypto.randomBytes(6).toString('hex');
-				pendingChanges.set(token, {
-					type: 'clear_role',
-					guildId: interaction.guildId,
-					expires: Date.now() + 5 * 60 * 1000,
-				});
-
-				const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-					new ButtonBuilder()
-						.setCustomId(`change:confirm:${token}`)
-						.setLabel('해제하기')
-						.setStyle(ButtonStyle.Danger),
-					new ButtonBuilder()
-						.setCustomId(`change:cancel:${token}`)
-						.setLabel('취소')
-						.setStyle(ButtonStyle.Secondary)
-				);
-
-				await interaction.reply({
-					content: [
-						'⚠️ **지급 역할 해제 확인**',
-						`현재 설정된 지급 역할(<@&${existing.role_id}>)을 해제(없음으로 변경)하시겠습니까?`,
-					].join('\n'),
-					components: [row],
-					flags: MessageFlags.Ephemeral,
-				});
-				return;
-			}
-
 			const role = interaction.options.getRole('role', true);
 
 			if (existing?.role_id) {
@@ -538,11 +497,6 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
 			return;
 		}
 
-		if (item.type === 'clear_role') {
-			dbOps.setRole(item.guildId, '');
-			await updateAutoDelete(interaction, '✅ 지급 역할 설정을 해제했습니다. (지급 역할: 없음)');
-			return;
-		}
 	}
 
 	// 기존 인증 메시지 교체 취소

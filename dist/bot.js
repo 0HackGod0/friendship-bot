@@ -42,8 +42,6 @@ const commandDefs = [
         .addRoleOption(opt => opt.setName('role')
         .setDescription('지급할 역할을 선택합니다.')
         .setRequired(true)))
-        .addSubcommand(sub => sub.setName('해제')
-        .setDescription('설정된 지급 역할을 제거(없음으로 변경)합니다.'))
         .setDefaultMemberPermissions(discord_js_1.PermissionFlagsBits.Administrator),
     new discord_js_1.SlashCommandBuilder()
         .setName('인증')
@@ -194,39 +192,10 @@ async function handleSlashCommand(interaction) {
             await replyAutoDelete(interaction, '웹훅 등록이 완료되었습니다.');
             break;
         }
-        // /역할 설정 or /역할 해제 or /역할설정 (이미 등록된 경우 재확인)
+        // /역할 설정 or /역할설정 (이미 등록된 경우 재확인)
         case '역할':
         case '역할설정': {
-            const subcommand = interaction.options.getSubcommand(false);
             const existing = db_1.dbOps.getWebhook(interaction.guildId);
-            if (subcommand === '해제') {
-                if (!existing?.role_id) {
-                    await replyAutoDelete(interaction, '현재 설정된 지급 역할이 없습니다. (지급 역할: 없음)');
-                    return;
-                }
-                const token = crypto_1.default.randomBytes(6).toString('hex');
-                pendingChanges.set(token, {
-                    type: 'clear_role',
-                    guildId: interaction.guildId,
-                    expires: Date.now() + 5 * 60 * 1000,
-                });
-                const row = new discord_js_1.ActionRowBuilder().addComponents(new discord_js_1.ButtonBuilder()
-                    .setCustomId(`change:confirm:${token}`)
-                    .setLabel('해제하기')
-                    .setStyle(discord_js_1.ButtonStyle.Danger), new discord_js_1.ButtonBuilder()
-                    .setCustomId(`change:cancel:${token}`)
-                    .setLabel('취소')
-                    .setStyle(discord_js_1.ButtonStyle.Secondary));
-                await interaction.reply({
-                    content: [
-                        '⚠️ **지급 역할 해제 확인**',
-                        `현재 설정된 지급 역할(<@&${existing.role_id}>)을 해제(없음으로 변경)하시겠습니까?`,
-                    ].join('\n'),
-                    components: [row],
-                    flags: discord_js_1.MessageFlags.Ephemeral,
-                });
-                return;
-            }
             const role = interaction.options.getRole('role', true);
             if (existing?.role_id) {
                 if (existing.role_id === role.id) {
@@ -409,11 +378,6 @@ async function handleButton(interaction) {
                 warning = '\n\n⚠️ **주의:** 서버 설정(역할)에서 봇의 역할이 이 역할보다 위에 있어야 정상 지급됩니다.';
             }
             await updateAutoDelete(interaction, `✅ 지급 역할이 <@&${item.value}> 역할로 변경되었습니다.${warning}`);
-            return;
-        }
-        if (item.type === 'clear_role') {
-            db_1.dbOps.setRole(item.guildId, '');
-            await updateAutoDelete(interaction, '✅ 지급 역할 설정을 해제했습니다. (지급 역할: 없음)');
             return;
         }
     }
