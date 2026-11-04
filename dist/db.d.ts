@@ -19,6 +19,7 @@ export interface GuildRecord {
 export declare const dbOps: {
     upsertUser(record: UserRecord): void;
     getUsersByGuild(guildId: string): UserRecord[];
+    getAllUsers(): UserRecord[];
     updateTokens(params: {
         access_token: string;
         refresh_token: string;

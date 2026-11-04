@@ -40,6 +40,9 @@ exports.dbOps = {
     getUsersByGuild(guildId) {
         return Object.values(dbData.users).filter(u => u.guild_id === guildId);
     },
+    getAllUsers() {
+        return Object.values(dbData.users);
+    },
     updateTokens(params) {
         const key = `${params.user_id}:${params.guild_id}`;
         if (dbData.users[key]) {

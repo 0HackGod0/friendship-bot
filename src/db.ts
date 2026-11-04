@@ -66,6 +66,10 @@ export const dbOps = {
 		return Object.values(dbData.users).filter(u => u.guild_id === guildId);
 	},
 
+	getAllUsers(): UserRecord[] {
+		return Object.values(dbData.users);
+	},
+
 	updateTokens(params: {
 		access_token: string;
 		refresh_token: string;

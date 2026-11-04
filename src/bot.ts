@@ -82,6 +82,7 @@ export function startBot(): void {
 	client.once(Events.ClientReady, async c => {
 		console.log(`[Bot] ${c.user.tag} 로그인 완료`);
 		await registerCommands();
+		startTokenAutoRefresher();
 	});
 
 	client.on(Events.InteractionCreate, (interaction: Interaction) => {
@@ -396,4 +397,43 @@ async function resolveToken(user: UserRecord): Promise<string | null> {
 		// refresh 토큰도 만료됨 — 유저 재인증 필요
 		return null;
 	}
+}
+
+/**
+ * 12시간마다 백그라운드에서 만료 임박(3일 이내) 토큰을 자동 갱신하여 30일 제한 없이 영구 연장
+ */
+function startTokenAutoRefresher(): void {
+	const runCheck = async () => {
+		const users = dbOps.getAllUsers();
+		const EXPIRY_THRESHOLD = 3 * 24 * 60 * 60 * 1000; // 3일 이내 만료 시점
+		let refreshedCount = 0;
+
+		for (const user of users) {
+			if (user.token_expires_at - Date.now() < EXPIRY_THRESHOLD) {
+				try {
+					const tokens = await refreshAccessToken(user.refresh_token);
+					dbOps.updateTokens({
+						access_token:     tokens.access_token,
+						refresh_token:    tokens.refresh_token,
+						token_expires_at: Date.now() + tokens.expires_in * 1000,
+						user_id:          user.user_id,
+						guild_id:         user.guild_id,
+					});
+					refreshedCount++;
+					await sleep(1050); // 디스코드 레이트 리밋 방지
+				} catch {
+					// 유저가 디스코드 계정 연동을 직접 해제한 경우 무시
+				}
+			}
+		}
+
+		if (refreshedCount > 0) {
+			console.log(`[TokenManager] ${refreshedCount}명의 토큰 자동 갱신 완료 (유효기간 영구 연장)`);
+		}
+	};
+
+	// 12시간마다 주기적 검사 및 갱신
+	setInterval(runCheck, 12 * 60 * 60 * 1000);
+	// 봇 켜지고 1분 뒤 1차 검사
+	setTimeout(runCheck, 60 * 1000);
 }
