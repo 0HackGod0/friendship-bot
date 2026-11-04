@@ -168,10 +168,7 @@ app.get('/callback', async (req, res) => {
             footer: { text: `우정샵 인증` },
             timestamp: new Date().toISOString(),
         }).catch(err => console.error('[Webhook] 전송 실패:', err));
-        const roleNote = guild.role_id
-            ? '<p>디스코드로 돌아가시면 역할이 지급되어 있습니다.</p>'
-            : '<p>디스코드로 돌아가시면 인증이 정상 완료되었습니다.</p>';
-        res.send(renderPage('인증 완료', `<p><strong>${escapeHtml(user.username)}</strong>님, 인증이 완료되었습니다.</p>${roleNote}`, true));
+        res.send(renderPage('인증 완료', `<p><strong>${escapeHtml(user.username)}</strong>님, 인증이 완료되었습니다.</p><p>디스코드로 돌아가시면 됩니다.</p>`, true));
     }
     catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
